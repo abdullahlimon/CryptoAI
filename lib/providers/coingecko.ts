@@ -2,7 +2,7 @@ import { fetchJson } from "./fetcher";
 
 const BASE = "https://api.coingecko.com/api/v3";
 
-function headers() {
+function headers(): Record<string, string> {
   const key = process.env.COINGECKO_API_KEY;
   return key ? { "x-cg-demo-api-key": key } : {};
 }

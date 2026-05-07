@@ -27,12 +27,14 @@ const Body = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  let parsed;
-  try {
-    parsed = Body.parse(await req.json());
-  } catch (err) {
-    return NextResponse.json({ error: "invalid body", detail: String(err) }, { status: 400 });
+  const parsedResult = await req
+    .json()
+    .then((body) => ({ ok: true as const, value: Body.parse(body) }))
+    .catch((err: unknown) => ({ ok: false as const, err }));
+  if (!parsedResult.ok) {
+    return NextResponse.json({ error: "invalid body", detail: String(parsedResult.err) }, { status: 400 });
   }
+  const parsed = parsedResult.value;
 
   try {
     const result = await aiCompleteCached({

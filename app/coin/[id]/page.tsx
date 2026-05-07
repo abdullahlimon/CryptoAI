@@ -18,12 +18,8 @@ export const revalidate = 120;
 
 export default async function CoinPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  let coin;
-  try {
-    coin = await cgCoin(id);
-  } catch {
-    notFound();
-  }
+  const coin = await cgCoin(id).catch(() => null);
+  if (!coin) notFound();
 
   // First contract address we recognise -> pull DEX liquidity.
   const platforms = coin.platforms ?? {};
