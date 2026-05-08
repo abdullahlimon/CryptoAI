@@ -121,6 +121,50 @@ export async function cgCoin(id: string): Promise<CGCoinDetail> {
   });
 }
 
+export type CGSearchHit = {
+  id: string;
+  name: string;
+  symbol: string;
+  market_cap_rank: number | null;
+  thumb: string;
+  large: string;
+};
+export type CGSearch = {
+  coins: CGSearchHit[];
+};
+
+export async function cgSearch(query: string): Promise<CGSearch> {
+  return fetchJson<CGSearch>(`${BASE}/search`, {
+    headers: headers(),
+    revalidate: 300,
+    searchParams: { query },
+  });
+}
+
+/**
+ * Resolve a possibly-stale CoinGecko id (e.g. `zcoin` → `firo`).
+ * Tries the direct lookup; on 404, searches by id/symbol and returns the
+ * best-ranked match. Returns null when nothing matches.
+ */
+export async function cgResolveId(id: string): Promise<string | null> {
+  try {
+    const c = await cgCoin(id);
+    return c.id;
+  } catch (err) {
+    if (!(err instanceof Error) || !/http 404/.test(err.message)) return null;
+  }
+  try {
+    const { coins } = await cgSearch(id);
+    if (!coins.length) return null;
+    const exact = coins.find(
+      (c) => c.id === id || c.symbol.toLowerCase() === id.toLowerCase(),
+    );
+    return (exact ?? coins[0]).id;
+  } catch {
+    return null;
+  }
+}
+
 export type CGMarketChart = {
   prices: [number, number][];
   market_caps: [number, number][];

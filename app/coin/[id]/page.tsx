@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Image from "next/image";
-import { notFound } from "next/navigation";
-import { cgCoin } from "@/lib/providers/coingecko";
+import { notFound, redirect } from "next/navigation";
+import { cgCoin, cgSearch } from "@/lib/providers/coingecko";
 import { dsBestPair } from "@/lib/providers/dexscreener";
 import { hasSupabase, supabaseServer } from "@/lib/supabase/server";
 import { riskScore, momentumScore } from "@/lib/scoring/momentum";
@@ -18,8 +18,15 @@ export const revalidate = 120;
 
 export default async function CoinPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const coin = await cgCoin(id).catch(() => null);
-  if (!coin) notFound();
+  let coin = await cgCoin(id).catch(() => null);
+  if (!coin) {
+    const hit = await cgSearch(id)
+      .then((r) => r.coins[0])
+      .catch(() => null);
+    if (hit && hit.id !== id) redirect(`/coin/${hit.id}`);
+    if (hit) coin = await cgCoin(hit.id).catch(() => null);
+    if (!coin) notFound();
+  }
 
   // First contract address we recognise -> pull DEX liquidity.
   const platforms = coin.platforms ?? {};
