@@ -13,6 +13,7 @@ import { CoinAIReport } from "@/components/widgets/coin-ai-report";
 import { WatchlistToggle } from "@/components/widgets/watchlist-toggle";
 import { StatCard } from "@/components/widgets/stat-card";
 import { formatPct, formatUsd, formatNum, cn } from "@/lib/utils";
+import { prettifyCoinName, prettifyCoinSymbol } from "@/lib/format/coin";
 
 export const revalidate = 120;
 
@@ -69,8 +70,10 @@ export default async function CoinPage({ params }: { params: Promise<{ id: strin
         ) : null}
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-lg font-semibold">{coin.name}</h1>
-            <Badge variant="outline">{coin.symbol.toUpperCase()}</Badge>
+            <h1 className="text-lg font-semibold">
+              {prettifyCoinName(coin.name, coin.symbol)}
+            </h1>
+            <Badge variant="outline">{prettifyCoinSymbol(coin.symbol)}</Badge>
           </div>
           <div className="flex flex-wrap gap-1 pt-1">
             {coin.categories.slice(0, 6).map((c) => (

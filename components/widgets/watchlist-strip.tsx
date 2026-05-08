@@ -1,8 +1,9 @@
 import Link from "next/link";
+import { Star } from "lucide-react";
 import { hasSupabase, supabaseServer } from "@/lib/supabase/server";
 import { cgTopMarkets } from "@/lib/providers/coingecko";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Star } from "lucide-react";
+import { CoinCell } from "@/components/ui/coin-cell";
 import { formatPct, formatUsd, cn } from "@/lib/utils";
 
 export async function WatchlistStrip() {
@@ -38,7 +39,10 @@ export async function WatchlistStrip() {
         <CardTitle className="flex items-center gap-1.5">
           <Star className="h-3 w-3 text-primary" /> Watchlist
         </CardTitle>
-        <Link href="/watchlist" className="text-[10px] uppercase text-muted-foreground hover:text-foreground">
+        <Link
+          href="/watchlist"
+          className="text-[10px] uppercase text-muted-foreground hover:text-foreground"
+        >
           manage →
         </Link>
       </CardHeader>
@@ -55,11 +59,23 @@ export async function WatchlistStrip() {
                 <li key={c.id}>
                   <Link
                     href={`/coin/${c.id}`}
-                    className="flex items-center gap-2 px-3 py-2 hover:bg-accent/40"
+                    className="flex items-center gap-2 px-3 py-2 transition-colors hover:bg-accent/40"
                   >
-                    <span className="text-sm font-medium uppercase">{c.symbol}</span>
-                    <span className="num ml-auto text-xs">{formatUsd(c.current_price)}</span>
-                    <span className={cn("num w-16 text-right text-xs", change >= 0 ? "text-bull" : "text-bear")}>
+                    <CoinCell
+                      name={c.name}
+                      symbol={c.symbol}
+                      image={c.image}
+                      size="sm"
+                    />
+                    <span className="num ml-auto shrink-0 text-xs">
+                      {formatUsd(c.current_price)}
+                    </span>
+                    <span
+                      className={cn(
+                        "num w-16 shrink-0 text-right text-xs",
+                        change >= 0 ? "text-bull" : "text-bear",
+                      )}
+                    >
                       {formatPct(change)}
                     </span>
                   </Link>
