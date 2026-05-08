@@ -15,7 +15,14 @@ export function StatCard({
   className?: string;
 }) {
   return (
-    <Card className={cn("flex flex-col", className)}>
+    <Card
+      className={cn(
+        "lift relative flex flex-col overflow-hidden",
+        tone === "bull" && "before:absolute before:left-0 before:top-0 before:h-full before:w-[2px] before:bg-bull/60",
+        tone === "bear" && "before:absolute before:left-0 before:top-0 before:h-full before:w-[2px] before:bg-bear/60",
+        className,
+      )}
+    >
       <CardHeader className="border-b-0 pb-1">
         <CardTitle>{label}</CardTitle>
       </CardHeader>
@@ -29,7 +36,9 @@ export function StatCard({
         >
           {value}
         </div>
-        {sub && <div className="num mt-1 text-xs text-muted-foreground">{sub}</div>}
+        {sub && (
+          <div className="num mt-1 text-xs text-muted-foreground">{sub}</div>
+        )}
       </CardContent>
     </Card>
   );

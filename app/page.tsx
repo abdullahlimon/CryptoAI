@@ -13,6 +13,15 @@ export const revalidate = 60;
 export default function DashboardPage() {
   return (
     <div className="space-y-3">
+      <div className="flex items-baseline justify-between">
+        <h1 className="font-mono text-sm uppercase tracking-wider text-muted-foreground">
+          // Market Overview
+        </h1>
+        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          revalidates 60s
+        </span>
+      </div>
+
       {/* Top stat row */}
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Suspense fallback={<StatsSkeleton n={4} />}>

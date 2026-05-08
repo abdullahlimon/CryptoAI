@@ -64,9 +64,21 @@ export default async function CoinPage({ params }: { params: Promise<{ id: strin
   return (
     <div className="space-y-3">
       {/* Header */}
-      <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-card p-3">
+      <div
+        className={cn(
+          "relative flex flex-wrap items-center gap-3 overflow-hidden rounded-md border border-border bg-card p-3",
+          "before:absolute before:left-0 before:top-0 before:h-full before:w-[2px]",
+          change24 >= 0 ? "before:bg-bull/70" : "before:bg-bear/70",
+        )}
+      >
         {coin.image?.large ? (
-          <Image src={coin.image.large} alt="" width={32} height={32} className="rounded-full" />
+          <Image
+            src={coin.image.large}
+            alt=""
+            width={32}
+            height={32}
+            className="rounded-full ring-1 ring-border"
+          />
         ) : null}
         <div>
           <div className="flex items-center gap-2">

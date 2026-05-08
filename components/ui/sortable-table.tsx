@@ -72,7 +72,7 @@ export function SortableTable<T>({
   return (
     <div className={cn("w-full overflow-x-auto", className)}>
       <table className="w-full text-sm">
-        <thead className="text-[10px] uppercase tracking-wider text-muted-foreground">
+        <thead className="sticky top-0 z-[1] bg-card/95 text-[10px] uppercase tracking-wider text-muted-foreground backdrop-blur">
           <tr className="border-b border-border">
             {columns.map((col) => {
               const sortable = !!col.sortValue;
