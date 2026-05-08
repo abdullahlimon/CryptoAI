@@ -2,12 +2,27 @@ import { cgTopMarkets, type CGMarketCoin } from "@/lib/providers/coingecko";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   SortableTable,
-  type Column,
+  type SortableColumn,
+  type SortableRow,
 } from "@/components/ui/sortable-table";
 import { CoinCell } from "@/components/ui/coin-cell";
 import { formatPct, formatUsd, cn } from "@/lib/utils";
 
 type Mode = "gainers" | "losers" | "volume";
+
+const COLUMNS: SortableColumn[] = [
+  { key: "coin", header: "Coin", sortable: true },
+  { key: "price", header: "Price", align: "right", sortable: true, className: "num" },
+  { key: "change24", header: "24h", align: "right", sortable: true },
+  {
+    key: "volume",
+    header: "Vol",
+    align: "right",
+    hideOn: "sm",
+    sortable: true,
+    className: "num text-muted-foreground",
+  },
+];
 
 export async function MoversTable({
   mode,
@@ -22,7 +37,6 @@ export async function MoversTable({
   } catch {
     coins = [];
   }
-  // Filter out tiny mcaps (< $50M) to reduce noise.
   const filtered = coins.filter((c) => (c.market_cap ?? 0) > 50_000_000);
   const sorted = [...filtered].sort((a, b) => {
     if (mode === "gainers")
@@ -37,7 +51,29 @@ export async function MoversTable({
       );
     return (b.total_volume ?? 0) - (a.total_volume ?? 0);
   });
-  const rows = sorted.slice(0, limit);
+  const top = sorted.slice(0, limit);
+
+  const rows: SortableRow[] = top.map((c) => {
+    const ch24 = c.price_change_percentage_24h ?? 0;
+    return {
+      key: c.id,
+      href: `/coin/${c.id}`,
+      cells: [
+        <CoinCell name={c.name} symbol={c.symbol} image={c.image} />,
+        formatUsd(c.current_price),
+        <span className={cn("num", ch24 >= 0 ? "text-bull" : "text-bear")}>
+          {formatPct(ch24)}
+        </span>,
+        formatUsd(c.total_volume, { compact: true }),
+      ],
+      sort: [
+        c.name?.toLowerCase() ?? null,
+        c.current_price ?? null,
+        ch24,
+        c.total_volume ?? null,
+      ],
+    };
+  });
 
   const title =
     mode === "gainers"
@@ -45,48 +81,6 @@ export async function MoversTable({
       : mode === "losers"
         ? "Top Losers (24h)"
         : "Volume Leaders";
-
-  const columns: Column<CGMarketCoin>[] = [
-    {
-      key: "coin",
-      header: "Coin",
-      cell: (c) => (
-        <CoinCell name={c.name} symbol={c.symbol} image={c.image} />
-      ),
-      sortValue: (c) => c.name?.toLowerCase(),
-    },
-    {
-      key: "price",
-      header: "Price",
-      align: "right",
-      className: "num",
-      cell: (c) => formatUsd(c.current_price),
-      sortValue: (c) => c.current_price ?? 0,
-    },
-    {
-      key: "change24",
-      header: "24h",
-      align: "right",
-      cell: (c) => {
-        const v = c.price_change_percentage_24h ?? 0;
-        return (
-          <span className={cn("num", v >= 0 ? "text-bull" : "text-bear")}>
-            {formatPct(v)}
-          </span>
-        );
-      },
-      sortValue: (c) => c.price_change_percentage_24h ?? 0,
-    },
-    {
-      key: "volume",
-      header: "Vol",
-      align: "right",
-      className: "num text-muted-foreground",
-      hideOn: "sm",
-      cell: (c) => formatUsd(c.total_volume, { compact: true }),
-      sortValue: (c) => c.total_volume ?? 0,
-    },
-  ];
 
   return (
     <Card>
@@ -97,13 +91,7 @@ export async function MoversTable({
         </span>
       </CardHeader>
       <CardContent className="p-0">
-        <SortableTable<CGMarketCoin>
-          rows={rows}
-          columns={columns}
-          rowKey={(c) => c.id}
-          rowHref={(c) => `/coin/${c.id}`}
-          empty="No data."
-        />
+        <SortableTable rows={rows} columns={COLUMNS} empty="No data." />
       </CardContent>
     </Card>
   );

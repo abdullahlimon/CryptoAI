@@ -4,14 +4,29 @@ import { cgTopMarkets, type CGMarketCoin } from "@/lib/providers/coingecko";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   SortableTable,
-  type Column,
+  type SortableColumn,
+  type SortableRow,
 } from "@/components/ui/sortable-table";
 import { CoinCell } from "@/components/ui/coin-cell";
 import { formatPct, formatUsd, cn } from "@/lib/utils";
 
 export const revalidate = 60;
 
-type Row = CGMarketCoin & { tags: string[] };
+const COLUMNS: SortableColumn[] = [
+  { key: "coin", header: "Coin", sortable: true },
+  { key: "price", header: "Price", align: "right", sortable: true, className: "num" },
+  { key: "change24", header: "24h", align: "right", sortable: true },
+  { key: "change7d", header: "7d", align: "right", sortable: true, hideOn: "sm" },
+  {
+    key: "mcap",
+    header: "Mcap",
+    align: "right",
+    hideOn: "md",
+    sortable: true,
+    className: "num text-muted-foreground",
+  },
+  { key: "tags", header: "Tags", hideOn: "md" },
+];
 
 export default async function WatchlistPage() {
   if (!hasSupabase()) {
@@ -33,7 +48,7 @@ export default async function WatchlistPage() {
   }
 
   const sb = supabaseServer();
-  const [{ data: rows }, top] = await Promise.all([
+  const [{ data: rowsData }, top] = await Promise.all([
     sb
       .from("watchlists")
       .select("coin_id, tags, notes, favorite, created_at")
@@ -41,83 +56,53 @@ export default async function WatchlistPage() {
     cgTopMarkets(250, 1).catch(() => [] as CGMarketCoin[]),
   ]);
 
-  const ids = (rows ?? []).map((r) => r.coin_id);
-  const meta = new Map(top.filter((c) => ids.includes(c.id)).map((c) => [c.id, c]));
+  const ids = (rowsData ?? []).map((r) => r.coin_id);
+  const meta = new Map(
+    top.filter((c) => ids.includes(c.id)).map((c) => [c.id, c]),
+  );
 
-  const tableRows: Row[] = (rows ?? [])
+  const ranked = (rowsData ?? [])
     .map((r) => {
       const c = meta.get(r.coin_id);
       if (!c) return null;
-      return { ...c, tags: r.tags ?? [] };
+      return { ...c, tags: (r.tags ?? []) as string[] };
     })
-    .filter(Boolean) as Row[];
+    .filter(Boolean) as Array<CGMarketCoin & { tags: string[] }>;
 
-  const unranked = (rows ?? []).filter((r) => !meta.has(r.coin_id));
+  const rows: SortableRow[] = ranked.map((c) => {
+    const ch24 = c.price_change_percentage_24h ?? 0;
+    const ch7 = c.price_change_percentage_7d_in_currency ?? 0;
+    return {
+      key: c.id,
+      href: `/coin/${c.id}`,
+      cells: [
+        <CoinCell name={c.name} symbol={c.symbol} image={c.image} />,
+        formatUsd(c.current_price),
+        <span className={cn("num", ch24 >= 0 ? "text-bull" : "text-bear")}>
+          {formatPct(ch24)}
+        </span>,
+        <span className={cn("num", ch7 >= 0 ? "text-bull" : "text-bear")}>
+          {formatPct(ch7)}
+        </span>,
+        formatUsd(c.market_cap, { compact: true }),
+        (
+          <span className="text-xs text-muted-foreground">
+            {c.tags.join(", ") || "—"}
+          </span>
+        ),
+      ],
+      sort: [
+        c.name?.toLowerCase() ?? null,
+        c.current_price ?? null,
+        ch24,
+        ch7,
+        c.market_cap ?? null,
+        null,
+      ],
+    };
+  });
 
-  const columns: Column<Row>[] = [
-    {
-      key: "coin",
-      header: "Coin",
-      cell: (c) => <CoinCell name={c.name} symbol={c.symbol} image={c.image} />,
-      sortValue: (c) => c.name?.toLowerCase(),
-    },
-    {
-      key: "price",
-      header: "Price",
-      align: "right",
-      className: "num",
-      cell: (c) => formatUsd(c.current_price),
-      sortValue: (c) => c.current_price ?? 0,
-    },
-    {
-      key: "change24",
-      header: "24h",
-      align: "right",
-      cell: (c) => {
-        const v = c.price_change_percentage_24h ?? 0;
-        return (
-          <span className={cn("num", v >= 0 ? "text-bull" : "text-bear")}>
-            {formatPct(v)}
-          </span>
-        );
-      },
-      sortValue: (c) => c.price_change_percentage_24h ?? 0,
-    },
-    {
-      key: "change7d",
-      header: "7d",
-      align: "right",
-      hideOn: "sm",
-      cell: (c) => {
-        const v = c.price_change_percentage_7d_in_currency ?? 0;
-        return (
-          <span className={cn("num", v >= 0 ? "text-bull" : "text-bear")}>
-            {formatPct(v)}
-          </span>
-        );
-      },
-      sortValue: (c) => c.price_change_percentage_7d_in_currency ?? 0,
-    },
-    {
-      key: "mcap",
-      header: "Mcap",
-      align: "right",
-      className: "num text-muted-foreground",
-      hideOn: "md",
-      cell: (c) => formatUsd(c.market_cap, { compact: true }),
-      sortValue: (c) => c.market_cap ?? 0,
-    },
-    {
-      key: "tags",
-      header: "Tags",
-      hideOn: "md",
-      cell: (c) => (
-        <span className="text-xs text-muted-foreground">
-          {c.tags.join(", ") || "—"}
-        </span>
-      ),
-    },
-  ];
+  const unranked = (rowsData ?? []).filter((r) => !meta.has(r.coin_id));
 
   return (
     <div className="space-y-3">
@@ -127,21 +112,16 @@ export default async function WatchlistPage() {
             <Star className="h-3 w-3 text-primary" /> Watchlist
           </CardTitle>
           <span className="font-mono text-[10px] text-muted-foreground">
-            {tableRows.length} coins
+            {rows.length} coins
           </span>
         </CardHeader>
         <CardContent className="p-0">
-          {tableRows.length === 0 && unranked.length === 0 ? (
+          {rows.length === 0 && unranked.length === 0 ? (
             <p className="px-4 py-10 text-center text-sm text-muted-foreground">
               Empty. Open any coin and click <strong>Save</strong> to add it.
             </p>
           ) : (
-            <SortableTable<Row>
-              rows={tableRows}
-              columns={columns}
-              rowKey={(c) => c.id}
-              rowHref={(c) => `/coin/${c.id}`}
-            />
+            <SortableTable rows={rows} columns={COLUMNS} />
           )}
         </CardContent>
       </Card>

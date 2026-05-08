@@ -10,7 +10,8 @@ import { StatCard } from "@/components/widgets/stat-card";
 import { CoinCell } from "@/components/ui/coin-cell";
 import {
   SortableTable,
-  type Column,
+  type SortableColumn,
+  type SortableRow,
 } from "@/components/ui/sortable-table";
 import { formatPct, formatUsd, cn } from "@/lib/utils";
 
@@ -33,6 +34,29 @@ export async function generateMetadata({
     description: sector.blurb,
   };
 }
+
+const COLUMNS: SortableColumn[] = [
+  { key: "coin", header: "Coin", sortable: true },
+  { key: "price", header: "Price", align: "right", sortable: true, className: "num" },
+  { key: "change24", header: "24h", align: "right", sortable: true },
+  { key: "change7d", header: "7d", align: "right", sortable: true, hideOn: "sm" },
+  {
+    key: "mcap",
+    header: "Mcap",
+    align: "right",
+    sortable: true,
+    hideOn: "md",
+    className: "num text-muted-foreground",
+  },
+  {
+    key: "vol",
+    header: "Vol",
+    align: "right",
+    sortable: true,
+    hideOn: "md",
+    className: "num text-muted-foreground",
+  },
+];
 
 export default async function SectorPage({
   params,
@@ -70,69 +94,34 @@ export default async function SectorPage({
       })
     : 0;
 
-  const columns: Column<CGMarketCoin>[] = [
-    {
-      key: "coin",
-      header: "Coin",
-      cell: (c) => <CoinCell name={c.name} symbol={c.symbol} image={c.image} />,
-      sortValue: (c) => c.name?.toLowerCase(),
-    },
-    {
-      key: "price",
-      header: "Price",
-      align: "right",
-      className: "num",
-      cell: (c) => formatUsd(c.current_price),
-      sortValue: (c) => c.current_price ?? 0,
-    },
-    {
-      key: "change24",
-      header: "24h",
-      align: "right",
-      cell: (c) => {
-        const v = c.price_change_percentage_24h ?? 0;
-        return (
-          <span className={cn("num", v >= 0 ? "text-bull" : "text-bear")}>
-            {formatPct(v)}
-          </span>
-        );
-      },
-      sortValue: (c) => c.price_change_percentage_24h ?? 0,
-    },
-    {
-      key: "change7d",
-      header: "7d",
-      align: "right",
-      hideOn: "sm",
-      cell: (c) => {
-        const v = c.price_change_percentage_7d_in_currency ?? 0;
-        return (
-          <span className={cn("num", v >= 0 ? "text-bull" : "text-bear")}>
-            {formatPct(v)}
-          </span>
-        );
-      },
-      sortValue: (c) => c.price_change_percentage_7d_in_currency ?? 0,
-    },
-    {
-      key: "mcap",
-      header: "Mcap",
-      align: "right",
-      hideOn: "md",
-      className: "num text-muted-foreground",
-      cell: (c) => formatUsd(c.market_cap, { compact: true }),
-      sortValue: (c) => c.market_cap ?? 0,
-    },
-    {
-      key: "vol",
-      header: "Vol",
-      align: "right",
-      hideOn: "md",
-      className: "num text-muted-foreground",
-      cell: (c) => formatUsd(c.total_volume, { compact: true }),
-      sortValue: (c) => c.total_volume ?? 0,
-    },
-  ];
+  const rows: SortableRow[] = coins.map((c) => {
+    const ch24 = c.price_change_percentage_24h ?? 0;
+    const ch7 = c.price_change_percentage_7d_in_currency ?? 0;
+    return {
+      key: c.id,
+      href: `/coin/${c.id}`,
+      cells: [
+        <CoinCell name={c.name} symbol={c.symbol} image={c.image} />,
+        formatUsd(c.current_price),
+        <span className={cn("num", ch24 >= 0 ? "text-bull" : "text-bear")}>
+          {formatPct(ch24)}
+        </span>,
+        <span className={cn("num", ch7 >= 0 ? "text-bull" : "text-bear")}>
+          {formatPct(ch7)}
+        </span>,
+        formatUsd(c.market_cap, { compact: true }),
+        formatUsd(c.total_volume, { compact: true }),
+      ],
+      sort: [
+        c.name?.toLowerCase() ?? null,
+        c.current_price ?? null,
+        ch24,
+        ch7,
+        c.market_cap ?? null,
+        c.total_volume ?? null,
+      ],
+    };
+  });
 
   return (
     <div className="space-y-3">
@@ -187,11 +176,9 @@ export default async function SectorPage({
           </span>
         </CardHeader>
         <CardContent className="p-0">
-          <SortableTable<CGMarketCoin>
-            rows={coins}
-            columns={columns}
-            rowKey={(c) => c.id}
-            rowHref={(c) => `/coin/${c.id}`}
+          <SortableTable
+            rows={rows}
+            columns={COLUMNS}
             initialSort={{ key: "change24", dir: "desc" }}
             empty="No market data for this sector yet."
           />

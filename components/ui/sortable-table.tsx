@@ -5,51 +5,60 @@ import Link from "next/link";
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type Column<T> = {
+export type SortableColumn = {
   key: string;
   header: React.ReactNode;
-  /** Renderer for the cell. */
-  cell: (row: T) => React.ReactNode;
-  /** Value used for sorting; if absent the column is not sortable. */
-  sortValue?: (row: T) => number | string | null | undefined;
   align?: "left" | "right";
   className?: string;
-  /** Skip stretching this column on narrow viewports. */
   hideOn?: "sm" | "md";
+  sortable?: boolean;
 };
 
-type Props<T> = {
-  rows: T[];
-  columns: Column<T>[];
-  rowKey: (row: T) => string;
-  rowHref?: (row: T) => string;
+export type SortableRow = {
+  /** Stable React key. */
+  key: string;
+  /** Optional click target. */
+  href?: string;
+  /** Pre-rendered cells, parallel to columns. */
+  cells: React.ReactNode[];
+  /** Parallel array of values used to sort that column.
+   * `null` / `undefined` sort to the bottom. Length must match columns. */
+  sort: Array<number | string | null | undefined>;
+};
+
+type Props = {
+  rows: SortableRow[];
+  columns: SortableColumn[];
   initialSort?: { key: string; dir: "asc" | "desc" };
   empty?: React.ReactNode;
   className?: string;
 };
 
-export function SortableTable<T>({
+export function SortableTable({
   rows,
   columns,
-  rowKey,
-  rowHref,
   initialSort,
   empty,
   className,
-}: Props<T>) {
+}: Props) {
   const [sort, setSort] = React.useState<{
     key: string;
     dir: "asc" | "desc";
   } | null>(initialSort ?? null);
 
+  const colIndex = React.useMemo(
+    () => Object.fromEntries(columns.map((c, i) => [c.key, i])),
+    [columns],
+  );
+
   const sorted = React.useMemo(() => {
     if (!sort) return rows;
-    const col = columns.find((c) => c.key === sort.key);
-    if (!col?.sortValue) return rows;
+    const i = colIndex[sort.key];
+    if (i == null) return rows;
     const dir = sort.dir === "asc" ? 1 : -1;
     return [...rows].sort((a, b) => {
-      const av = col.sortValue!(a);
-      const bv = col.sortValue!(b);
+      const av = a.sort[i];
+      const bv = b.sort[i];
       if (av == null && bv == null) return 0;
       if (av == null) return 1;
       if (bv == null) return -1;
@@ -58,10 +67,10 @@ export function SortableTable<T>({
       }
       return String(av).localeCompare(String(bv)) * dir;
     });
-  }, [rows, columns, sort]);
+  }, [rows, sort, colIndex]);
 
-  const onHeaderClick = (col: Column<T>) => {
-    if (!col.sortValue) return;
+  const onHeaderClick = (col: SortableColumn) => {
+    if (!col.sortable) return;
     setSort((prev) => {
       if (prev?.key !== col.key) return { key: col.key, dir: "desc" };
       if (prev.dir === "desc") return { key: col.key, dir: "asc" };
@@ -75,7 +84,6 @@ export function SortableTable<T>({
         <thead className="sticky top-0 z-[1] bg-card/95 text-[10px] uppercase tracking-wider text-muted-foreground backdrop-blur">
           <tr className="border-b border-border">
             {columns.map((col) => {
-              const sortable = !!col.sortValue;
               const active = sort?.key === col.key;
               return (
                 <th
@@ -87,7 +95,7 @@ export function SortableTable<T>({
                     col.hideOn === "md" && "hidden md:table-cell",
                   )}
                 >
-                  {sortable ? (
+                  {col.sortable ? (
                     <button
                       type="button"
                       onClick={() => onHeaderClick(col)}
@@ -121,55 +129,49 @@ export function SortableTable<T>({
               </td>
             </tr>
           )}
-          {sorted.map((row) => {
-            const href = rowHref?.(row);
-            return (
-              <tr
-                key={rowKey(row)}
-                className={cn(
-                  "group border-b border-border/50 transition-colors last:border-0",
-                  href && "cursor-pointer hover:bg-accent/40",
-                )}
-                onClick={
-                  href
-                    ? (e) => {
-                        // Don't hijack clicks on inner links/buttons.
-                        if (
-                          (e.target as HTMLElement).closest("a,button,input")
-                        ) {
-                          return;
-                        }
-                        window.location.href = href;
+          {sorted.map((row) => (
+            <tr
+              key={row.key}
+              className={cn(
+                "group border-b border-border/50 transition-colors last:border-0",
+                row.href && "cursor-pointer hover:bg-accent/40",
+              )}
+              onClick={
+                row.href
+                  ? (e) => {
+                      if ((e.target as HTMLElement).closest("a,button,input")) {
+                        return;
                       }
-                    : undefined
-                }
-              >
-                {columns.map((col, i) => (
-                  <td
-                    key={col.key}
-                    className={cn(
-                      "px-3 py-2",
-                      col.align === "right" ? "text-right" : "text-left",
-                      col.hideOn === "sm" && "hidden sm:table-cell",
-                      col.hideOn === "md" && "hidden md:table-cell",
-                      col.className,
-                    )}
-                  >
-                    {href && i === 0 ? (
-                      <Link
-                        href={href}
-                        className="block focus:outline-none focus-visible:ring-1 focus-visible:ring-primary"
-                      >
-                        {col.cell(row)}
-                      </Link>
-                    ) : (
-                      col.cell(row)
-                    )}
-                  </td>
-                ))}
-              </tr>
-            );
-          })}
+                      window.location.href = row.href!;
+                    }
+                  : undefined
+              }
+            >
+              {columns.map((col, i) => (
+                <td
+                  key={col.key}
+                  className={cn(
+                    "px-3 py-2",
+                    col.align === "right" ? "text-right" : "text-left",
+                    col.hideOn === "sm" && "hidden sm:table-cell",
+                    col.hideOn === "md" && "hidden md:table-cell",
+                    col.className,
+                  )}
+                >
+                  {row.href && i === 0 ? (
+                    <Link
+                      href={row.href}
+                      className="block focus:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+                    >
+                      {row.cells[i]}
+                    </Link>
+                  ) : (
+                    row.cells[i]
+                  )}
+                </td>
+              ))}
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
